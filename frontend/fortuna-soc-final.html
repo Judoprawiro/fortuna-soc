@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FORTUNA SOC — Unit Intelijen Siber</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#080e1c;--bg2:#0d1428;--card:#0f1623;--card2:#111929;
+  --border:#1a2a4a;--border2:#1e3352;
+  --cyan:#00d4ff;--cyan2:#00f5ff;--cyan-dim:#0088bb;
+  --green:#00ff9d;--red:#ff2d55;--orange:#ff8c00;--yellow:#ffd600;
+  --text:#a8c4d8;--text-dim:#4a6a85;--white:#e8f4fc;
+}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;display:flex;flex-direction:column;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.022) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.022) 1px,transparent 1px);background-size:50px 50px;pointer-events:none;z-index:0;}
+
+/* ══ APP LAYOUT ══ */
+.app{display:flex;height:100vh;position:relative;z-index:1;}
+
+/* ══ SIDEBAR ══ */
+.sidebar{width:64px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:4px;flex-shrink:0;transition:width 0.3s cubic-bezier(.4,0,.2,1);overflow:hidden;position:relative;z-index:10;}
+.sidebar:hover{width:220px;}
+.sidebar:hover .nlbl{opacity:1;transform:translateX(0);}
+.slogo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#00d4ff22,#00d4ff44);border:2px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px;flex-shrink:0;box-shadow:0 0 18px rgba(0,212,255,0.3);}
+.ni{width:100%;display:flex;align-items:center;gap:12px;padding:9px 12px;cursor:pointer;border-radius:8px;transition:all 0.2s;position:relative;white-space:nowrap;border:1px solid transparent;}
+.ni:hover{background:rgba(0,212,255,0.08);border-color:rgba(0,212,255,0.15);}
+.ni.active{background:rgba(0,212,255,0.12);border-color:rgba(0,212,255,0.3);}
+.ni.active .nico{color:var(--cyan);filter:drop-shadow(0 0 5px var(--cyan));}
+.nico{font-size:19px;flex-shrink:0;width:40px;text-align:center;transition:color 0.2s;}
+.nlbl{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--text);opacity:0;transform:translateX(-8px);transition:all 0.25s;}
+.ni.active .nlbl{color:var(--cyan);}
+.sdiv{width:36px;height:1px;background:var(--border);margin:4px 0;}
+
+/* ══ PAGES ══ */
+.pages{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+.page{display:none;flex-direction:column;height:100%;overflow:hidden;}
+.page.active{display:flex;}
+
+/* ══ TOP BAR ══ */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:9px 22px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;position:relative;}
+.topbar::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);animation:glH 4s linear infinite;opacity:0.35;}
+@keyframes glH{0%,100%{opacity:0.2;}50%{opacity:0.6;}}
+.tbl{display:flex;align-items:center;gap:12px;}
+.pgico{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#00d4ff22,#00d4ff44);border:2px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 18px rgba(0,212,255,0.2);}
+.pgtit h1{font-family:'Orbitron',monospace;font-size:17px;font-weight:900;color:var(--cyan);letter-spacing:1px;line-height:1;}
+.pgtit p{font-size:11px;color:var(--text-dim);margin-top:2px;}
+.tbr{display:flex;align-items:center;gap:8px;}
+.blive{display:flex;align-items:center;gap:5px;background:rgba(0,255,157,0.08);border:1px solid rgba(0,255,157,0.32);border-radius:20px;padding:4px 12px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--green);letter-spacing:2px;}
+.dg{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 7px var(--green);animation:pg 1.5s ease-in-out infinite;}
+@keyframes pg{0%,100%{opacity:1;}50%{opacity:0.4;}}
+.clkd{font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--cyan);letter-spacing:2px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:7px;padding:4px 10px;}
+.bsound{background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:14px;transition:all 0.2s;color:var(--cyan);}
+.bsound:hover{background:rgba(0,212,255,0.18);}
+.bsound.muted{opacity:0.4;}
+
+/* ══ SOC PAGE ══ */
+.socbody{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.sstats{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;flex-shrink:0;}
+.ssc{background:var(--bg2);padding:12px 18px;border-left:3px solid transparent;cursor:default;transition:background 0.2s;}
+.ssc:hover{background:#0a1828;}
+.ssc.bl{border-color:var(--cyan);}
+.ssc.re{border-color:var(--red);}
+.ssc.or{border-color:var(--orange);}
+.ssc.gr{border-color:var(--green);}
+.ssc-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text-dim);margin-bottom:3px;}
+.ssc-val{font-family:'Orbitron',monospace;font-size:28px;font-weight:700;line-height:1;}
+.ssc.bl .ssc-val{color:var(--white);}
+.ssc.re .ssc-val{color:var(--red);text-shadow:0 0 16px rgba(255,45,85,0.4);}
+.ssc.or .ssc-val{color:var(--orange);}
+.ssc.gr .ssc-val{color:var(--green);text-shadow:0 0 16px rgba(0,255,157,0.3);}
+.ssc-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--text-dim);margin-top:2px;}
+
+.socmain{flex:1;display:grid;grid-template-columns:1fr 1fr 300px;gap:2px;min-height:0;}
+
+.panel{background:var(--bg2);border:1px solid var(--border);position:relative;display:flex;flex-direction:column;}
+.phdr{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-bottom:1px solid var(--border);background:rgba(0,212,255,0.02);flex-shrink:0;}
+.pttl{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--cyan);display:flex;align-items:center;gap:7px;}
+.pttl::before{content:'';width:3px;height:12px;background:var(--cyan);box-shadow:0 0 5px var(--cyan);}
+.ldot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--red);animation:pr 1s ease-in-out infinite;box-shadow:0 0 4px var(--red);}
+@keyframes pr{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+.logtbl{width:100%;border-collapse:collapse;}
+.logtbl th{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text-dim);padding:7px 16px;text-align:left;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.2);}
+.logtbl td{padding:10px 16px;font-size:14px;font-weight:500;border-bottom:1px solid rgba(14,42,63,0.35);font-family:'Share Tech Mono',monospace;color:var(--text);}
+.logtbl tbody tr{transition:background 0.15s;}
+.logtbl tbody tr:hover{background:rgba(0,212,255,0.04);}
+.logtbl tr.ne{animation:efl 0.5s ease;}
+@keyframes efl{0%{background:rgba(0,212,255,0.12);}100%{background:transparent;}}
+.aname{color:var(--cyan);font-weight:600;}
+.badge{display:inline-block;padding:2px 7px;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1px;border-radius:2px;font-weight:700;border:1px solid;}
+.badge.critical{color:var(--red);border-color:var(--red);background:rgba(255,45,85,0.1);}
+.badge.high{color:var(--orange);border-color:var(--orange);background:rgba(255,140,0,0.1);}
+.badge.medium{color:var(--yellow);border-color:var(--yellow);background:rgba(255,214,0,0.07);}
+.badge.low{color:var(--green);border-color:var(--green);background:rgba(0,255,157,0.07);}
+
+/* chart panel */
+.chart-wrap{padding:12px;flex:1;min-height:0;max-height:200px;position:relative;}
+
+/* radar */
+.radwrap{display:flex;justify-content:center;padding:14px;flex-shrink:0;}
+.threatbar{padding:10px 16px;}
+.trtl{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--text-dim);margin-bottom:10px;text-align:center;}
+.trow{margin-bottom:9px;}
+.trhdr{display:flex;justify-content:space-between;margin-bottom:3px;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;}
+.btrack{height:3px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.bfill{height:100%;border-radius:2px;transition:width 1s ease;}
+.bfill.c{background:linear-gradient(90deg,#00b,var(--cyan));box-shadow:0 0 5px rgba(0,212,255,0.4);}
+.bfill.r{background:linear-gradient(90deg,#aa0022,var(--red));box-shadow:0 0 5px rgba(255,45,85,0.4);}
+.bfill.o{background:linear-gradient(90deg,#cc5500,var(--orange));box-shadow:0 0 5px rgba(255,140,0,0.3);}
+
+.ticker{background:rgba(255,45,85,0.05);border-top:1px solid rgba(255,45,85,0.2);padding:5px 16px;display:flex;align-items:center;gap:8px;overflow:hidden;flex-shrink:0;}
+.tklbl{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--red);white-space:nowrap;animation:pg 2s infinite;}
+.tktxt{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);white-space:nowrap;animation:tks 35s linear infinite;}
+@keyframes tks{0%{transform:translateX(100%);}100%{transform:translateX(-200vw);}}
+
+/* ══ MAP PAGE ══ */
+.mapbody{flex:1;display:grid;grid-template-columns:1fr 290px;gap:10px;padding:10px;min-height:0;overflow:hidden;}
+.mapc{border-radius:12px;overflow:hidden;border:1px solid var(--border);position:relative;}
+#map{width:100%;height:100%;}
+.leaflet-container{background:#040c14!important;}
+.leaflet-tile-pane{filter:brightness(0.28) saturate(0.2) hue-rotate(200deg);}
+.leaflet-control-zoom a{background:var(--card)!important;color:var(--cyan)!important;border-color:var(--border)!important;}
+.leaflet-control-attribution{background:rgba(8,14,28,0.85)!important;color:var(--text-dim)!important;font-size:8px;}
+.leaflet-control-attribution a{color:var(--text-dim)!important;}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:transparent!important;box-shadow:none!important;border:none!important;padding:0!important;}
+.leaflet-popup-content{margin:0!important;}
+.mapstats{display:grid;grid-template-columns:1fr 1fr;gap:7px;position:absolute;top:10px;left:10px;z-index:500;}
+.ms{background:rgba(8,14,28,0.88);border:1px solid var(--border2);border-radius:9px;padding:8px 12px;backdrop-filter:blur(8px);}
+.ms-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--text-dim);margin-bottom:2px;}
+.ms-val{font-family:'Orbitron',monospace;font-size:20px;font-weight:700;}
+.ms.t .ms-val{color:var(--cyan);}
+.ms.cr .ms-val{color:var(--red);}
+.ms.hi .ms-val{color:var(--orange);}
+.ms.me .ms-val{color:var(--yellow);}
+.evpanel{background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;}
+.ephdr{padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(0,212,255,0.02);flex-shrink:0;display:flex;align-items:center;gap:7px;}
+.epic{width:24px;height:24px;border-radius:6px;background:rgba(0,212,255,0.14);border:1px solid rgba(0,212,255,0.28);display:flex;align-items:center;justify-content:center;font-size:11px;}
+.epttl{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--cyan);}
+.evlist{overflow-y:auto;flex:1;}
+.evlist::-webkit-scrollbar{width:3px;}
+.evlist::-webkit-scrollbar-thumb{background:var(--cyan);border-radius:2px;}
+.evc{padding:9px 12px;border-bottom:1px solid rgba(26,42,74,0.35);cursor:pointer;transition:background 0.15s;border-left:3px solid transparent;}
+.evc:hover{background:rgba(0,212,255,0.04);}
+.evc.critical{border-left-color:var(--red);}
+.evc.high{border-left-color:var(--orange);}
+.evc.medium{border-left-color:var(--yellow);}
+.evc.low{border-left-color:var(--green);}
+.evc.nfl{animation:efl2 0.5s ease;}
+@keyframes efl2{0%{background:rgba(0,212,255,0.1);}100%{background:transparent;}}
+.evr1{display:flex;justify-content:space-between;margin-bottom:2px;}
+.evtm{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);}
+.evsv{font-family:'Share Tech Mono',monospace;font-size:9px;font-weight:700;}
+.evsv.critical{color:var(--red);}
+.evsv.high{color:var(--orange);}
+.evsv.medium{color:var(--yellow);}
+.evsv.low{color:var(--green);}
+.evtp{font-size:12px;font-weight:700;color:var(--white);margin-bottom:1px;}
+.evmt{display:flex;gap:8px;}
+.evlc{font-size:9px;color:var(--cyan);}
+.evip{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);}
+
+/* ══ HUNTING PAGE ══ */
+.thbody{flex:1;overflow-y:auto;padding:14px 20px;display:flex;flex-direction:column;gap:12px;}
+.thbody::-webkit-scrollbar{width:4px;}
+.thbody::-webkit-scrollbar-thumb{background:var(--border2);}
+.filterbox{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:18px 22px;position:relative;overflow:hidden;flex-shrink:0;}
+.filterbox::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:0.32;}
+.fbttl{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--cyan);margin-bottom:14px;display:flex;align-items:center;gap:7px;}
+.fbttl::before{content:'⛉';font-size:12px;}
+.fgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 14px;margin-bottom:12px;}
+.fg{display:flex;flex-direction:column;gap:4px;}
+.flbl{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--text-dim);}
+.fin,.fsel{background:#080e1c;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;width:100%;}
+.fin::placeholder{color:var(--text-dim);}
+.fin:focus,.fsel:focus{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(0,212,255,0.09);}
+.fsel{appearance:none;cursor:pointer;padding-right:26px;}
+.fsel option{background:#0d1428;}
+.sw{position:relative;}
+.sw::after{content:'▾';position:absolute;right:8px;top:50%;transform:translateY(-50%);color:var(--text-dim);pointer-events:none;font-size:10px;}
+.dg2{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.fact{display:flex;gap:8px;}
+.bcari{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#00b8d9,#00d4ff);color:#001a26;border:none;border-radius:6px;padding:8px 18px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px;box-shadow:0 4px 16px rgba(0,212,255,0.22);transition:all 0.2s;}
+.bcari:hover{transform:translateY(-1px);box-shadow:0 6px 22px rgba(0,212,255,0.38);}
+.brst{background:transparent;border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:8px 14px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;}
+.brst:hover{border-color:var(--text-dim);}
+.resbox{background:var(--card);border:1px solid var(--border);border-radius:13px;overflow:hidden;position:relative;flex:1;}
+.resbox::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:0.28;}
+.rbhdr{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.2);}
+.rbttl{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--cyan);display:flex;align-items:center;gap:7px;}
+.rbttl::before{content:'◎';font-size:13px;}
+.fbdg{background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.32);border-radius:20px;padding:3px 10px;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--cyan);}
+.lbar{height:2px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);animation:lba 0.9s linear infinite;display:none;}
+.lbar.show{display:block;}
+@keyframes lba{0%{transform:translateX(-100%);}100%{transform:translateX(100vw);}}
+.emst{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px 20px;gap:12px;}
+.emico{font-size:44px;opacity:0.14;}
+.emtxt{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);letter-spacing:1px;text-align:center;}
+.tblw{overflow-x:auto;}
+.htbl{width:100%;border-collapse:collapse;}
+.htbl thead tr{background:rgba(0,0,0,0.3);}
+.htbl th{padding:9px 13px;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--text-dim);text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;transition:color 0.2s;}
+.htbl th:hover{color:var(--cyan);}
+.htbl td{padding:10px 13px;border-bottom:1px solid rgba(26,42,74,0.32);vertical-align:middle;font-size:12px;}
+.htbl tbody tr{transition:background 0.15s;cursor:default;animation:rwf 0.3s ease both;}
+.htbl tbody tr:hover{background:rgba(0,212,255,0.04);}
+@keyframes rwf{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+.tdtm{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);white-space:nowrap;}
+.tdtp{font-weight:700;color:var(--white);font-size:12px;margin-bottom:2px;}
+.rtag{display:inline-flex;align-items:center;gap:3px;font-family:'Share Tech Mono',monospace;font-size:8px;padding:1px 6px;border-radius:3px;background:rgba(255,45,85,0.07);border:1px solid rgba(255,45,85,0.18);color:var(--red);}
+.rtag.mal{background:rgba(255,45,85,0.14);border-color:rgba(255,45,85,0.38);}
+.sbdg{display:inline-block;padding:2px 9px;border-radius:4px;font-family:'Share Tech Mono',monospace;font-size:9px;font-weight:700;letter-spacing:1px;}
+.sbdg.critical{background:rgba(255,45,85,0.13);color:var(--red);border:1px solid rgba(255,45,85,0.32);}
+.sbdg.high{background:rgba(255,140,0,0.13);color:var(--orange);border:1px solid rgba(255,140,0,0.32);}
+.sbdg.medium{background:rgba(255,214,0,0.09);color:var(--yellow);border:1px solid rgba(255,214,0,0.27);}
+.sbdg.low{background:rgba(0,255,157,0.07);color:var(--green);border:1px solid rgba(0,255,157,0.22);}
+.tdip{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);}
+.tdlc{font-size:11px;font-weight:600;color:var(--text);}
+.stbdg{display:inline-block;padding:2px 9px;border-radius:4px;font-family:'Share Tech Mono',monospace;font-size:8px;font-weight:700;letter-spacing:1px;}
+.stbdg.active{background:rgba(0,255,157,0.07);color:var(--green);border:1px solid rgba(0,255,157,0.22);}
+.stbdg.blocked{background:rgba(255,140,0,0.09);color:var(--orange);border:1px solid rgba(255,140,0,0.27);}
+.stbdg.resolved{background:rgba(0,212,255,0.07);color:var(--cyan);border:1px solid rgba(0,212,255,0.22);}
+.bdtl{background:transparent;border:1px solid var(--border2);color:var(--cyan);border-radius:5px;padding:3px 10px;font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;transition:all 0.2s;}
+.bdtl:hover{background:rgba(0,212,255,0.1);border-color:var(--cyan);}
+.pgn{display:flex;align-items:center;justify-content:flex-end;gap:5px;padding:10px 18px;border-top:1px solid var(--border);}
+.pgni{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--text-dim);margin-right:5px;}
+.pgb{background:transparent;border:1px solid var(--border2);color:var(--text-dim);border-radius:4px;padding:4px 9px;font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;transition:all 0.2s;}
+.pgb:hover,.pgb.active{background:rgba(0,212,255,0.1);border-color:var(--cyan);color:var(--cyan);}
+
+/* ══ REPORT PAGE ══ */
+.repbody{flex:1;overflow-y:auto;padding:20px 28px;}
+.repbody::-webkit-scrollbar{width:4px;}
+.repbody::-webkit-scrollbar-thumb{background:var(--border2);}
+.rep-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
+.rep-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;position:relative;overflow:hidden;}
+.rep-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;}
+.rep-card.c1::after{background:linear-gradient(90deg,var(--cyan),transparent);}
+.rep-card.c2::after{background:linear-gradient(90deg,var(--red),transparent);}
+.rep-card.c3::after{background:linear-gradient(90deg,var(--green),transparent);}
+.rep-card.c4::after{background:linear-gradient(90deg,var(--orange),transparent);}
+.rep-card.c5::after{background:linear-gradient(90deg,var(--yellow),transparent);}
+.rep-card.c6::after{background:linear-gradient(90deg,var(--cyan-dim),transparent);}
+.rc-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text-dim);margin-bottom:5px;}
+.rc-val{font-family:'Orbitron',monospace;font-size:30px;font-weight:700;color:var(--white);line-height:1;}
+.rc-sub{font-size:11px;color:var(--text-dim);margin-top:4px;}
+.rep-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.rep-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;}
+.rep-box-ttl{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--cyan);margin-bottom:12px;display:flex;align-items:center;gap:7px;}
+.rep-box-ttl::before{content:'';width:3px;height:12px;background:var(--cyan);box-shadow:0 0 4px var(--cyan);}
+.top-threat{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(26,42,74,0.4);}
+.top-threat:last-child{border-bottom:none;}
+.tt-name{font-size:13px;font-weight:600;color:var(--white);}
+.tt-cnt{font-family:'Orbitron',monospace;font-size:14px;font-weight:700;color:var(--cyan);}
+.rep-timeline{display:flex;flex-direction:column;gap:10px;}
+.tl-item{display:flex;gap:12px;align-items:flex-start;}
+.tl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px;}
+.tl-dot.critical{background:var(--red);box-shadow:0 0 6px var(--red);}
+.tl-dot.high{background:var(--orange);box-shadow:0 0 6px var(--orange);}
+.tl-dot.medium{background:var(--yellow);box-shadow:0 0 6px var(--yellow);}
+.tl-time{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);margin-bottom:2px;}
+.tl-desc{font-size:13px;font-weight:600;color:var(--white);}
+.tl-sub{font-size:11px;color:var(--text-dim);}
+.rep-chart-wrap{height:180px;position:relative;}
+.btn-export{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,#00b8d9,#00d4ff);color:#001a26;border:none;border-radius:8px;padding:10px 22px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px;box-shadow:0 4px 16px rgba(0,212,255,0.25);transition:all 0.2s;margin-bottom:20px;}
+.btn-export:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,212,255,0.4);}
+
+/* ══ NOTIF POPUP ══ */
+.notif-stack{position:fixed;top:16px;right:16px;z-index:9000;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.notif{
+  background:var(--card);border:1px solid var(--border2);border-radius:12px;
+  padding:14px 16px;width:320px;pointer-events:all;
+  display:flex;gap:12px;align-items:flex-start;
+  transform:translateX(360px);transition:transform 0.4s cubic-bezier(.2,1,.3,1);
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);position:relative;overflow:hidden;
+}
+.notif.show{transform:translateX(0);}
+.notif.critical{border-left:4px solid var(--red);}
+.notif.high{border-left:4px solid var(--orange);}
+.notif.medium{border-left:4px solid var(--yellow);}
+.notif-bar{position:absolute;bottom:0;left:0;height:2px;background:var(--red);animation:nbar 4s linear forwards;}
+@keyframes nbar{0%{width:100%;}100%{width:0%;}}
+.notif-bar.high{background:var(--orange);}
+.notif-bar.medium{background:var(--yellow);}
+.notif-ico{font-size:22px;flex-shrink:0;}
+.notif-ttl{font-size:13px;font-weight:700;color:var(--white);margin-bottom:2px;}
+.notif-sub{font-size:11px;color:var(--text-dim);font-family:'Share Tech Mono',monospace;}
+.notif-sev{font-size:9px;font-weight:700;letter-spacing:1px;margin-top:4px;}
+.notif-sev.critical{color:var(--red);}
+.notif-sev.high{color:var(--orange);}
+.notif-sev.medium{color:var(--yellow);}
+.notif-close{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;}
+
+/* ══ MODAL ══ */
+.modov{position:fixed;inset:0;background:rgba(5,10,25,0.88);backdrop-filter:blur(8px);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.25s;}
+.modov.open{opacity:1;pointer-events:all;}
+.modal{background:var(--card);border:1px solid var(--border2);border-radius:15px;width:460px;max-width:95vw;position:relative;overflow:hidden;transform:translateY(18px);transition:transform 0.25s;}
+.modov.open .modal{transform:translateY(0);}
+.mbar{height:3px;background:linear-gradient(90deg,var(--cyan),var(--green));}
+.mhdr{display:flex;align-items:flex-start;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid var(--border);}
+.mttl{font-size:16px;font-weight:700;color:var(--white);}
+.mcls{background:transparent;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;transition:color 0.2s;padding:0;}
+.mcls:hover{color:var(--white);}
+.mbdy{padding:16px 20px;}
+.mrow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(26,42,74,0.38);}
+.mrow:last-child{border-bottom:none;}
+.mrl{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--text-dim);}
+.mrv{font-size:12px;font-weight:600;color:var(--white);}
+.mact{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:7px;}
+.bblk{flex:1;background:rgba(255,140,0,0.09);border:1px solid rgba(255,140,0,0.32);color:var(--orange);border-radius:7px;padding:8px;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;cursor:pointer;transition:all 0.2s;font-weight:700;}
+.bblk:hover{background:rgba(255,140,0,0.2);}
+.bres{flex:1;background:rgba(0,255,157,0.07);border:1px solid rgba(0,255,157,0.22);color:var(--green);border-radius:7px;padding:8px;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;cursor:pointer;transition:all 0.2s;font-weight:700;}
+.bres:hover{background:rgba(0,255,157,0.16);}
+
+/* cdeco */
+.cd{position:absolute;width:9px;height:9px;}
+.cd.tl{top:0;left:0;border-top:2px solid var(--cyan);border-left:2px solid var(--cyan);}
+.cd.tr{top:0;right:0;border-top:2px solid var(--cyan);border-right:2px solid var(--cyan);}
+.cd.bl{bottom:0;left:0;border-bottom:2px solid var(--cyan);border-left:2px solid var(--cyan);}
+.cd.br{bottom:0;right:0;border-bottom:2px solid var(--cyan);border-right:2px solid var(--cyan);}
+
+/* screen flash for critical */
+.flash-overlay{position:fixed;inset:0;background:rgba(255,45,85,0.07);pointer-events:none;z-index:8000;opacity:0;}
+.flash-overlay.flash{animation:scrfl 0.4s ease;}
+@keyframes scrfl{0%{opacity:1;}100%{opacity:0;}}
+</style>
+</head>
+<body>
+
+<div class="flash-overlay" id="flashOv"></div>
+<div class="notif-stack" id="notifStack"></div>
+
+<div class="app">
+
+<!-- ══ SIDEBAR ══ -->
+<div class="sidebar">
+  <div class="slogo">🛡️</div>
+  <div class="ni active" onclick="goPage('soc',this)"><span class="nico">📡</span><span class="nlbl">FORTUNA SOC</span></div>
+  <div class="ni" onclick="goPage('monitor',this)"><span class="nico">🗺️</span><span class="nlbl">MONITOR ANCAMAN</span></div>
+  <div class="ni" onclick="goPage('hunting',this)"><span class="nico">🎯</span><span class="nlbl">THREAT HUNTING</span></div>
+  <div class="ni" onclick="goPage('report',this)"><span class="nico">📄</span><span class="nlbl">LAPORAN</span></div>
+  <div class="sdiv"></div>
+  <div class="ni"><span class="nico">⚙️</span><span class="nlbl">PENGATURAN</span></div>
+</div>
+
+<!-- ══ PAGES ══ -->
+<div class="pages">
+
+<!-- ══ PAGE 1: SOC ══ -->
+<div class="page active" id="page-soc">
+  <div class="topbar">
+    <div class="tbl">
+      <div class="pgico">📡</div>
+      <div class="pgtit"><h1>FORTUNA<span style="color:var(--white)">SOC</span></h1><p>Unit Intelijen Siber — Dashboard Utama</p></div>
+    </div>
+    <div class="tbr">
+      <div class="blive"><div class="dg"></div>SYSTEM ONLINE</div>
+      <button class="bsound" id="sndBtn" onclick="toggleSound()" title="Toggle Sound">🔊</button>
+      <div class="clkd" id="clock">--:--:--</div>
+    </div>
+  </div>
+  <div class="socbody">
+    <div class="sstats">
+      <div class="ssc bl"><div class="ssc-lbl">TOTAL SERANGAN</div><div class="ssc-val" id="s1">1254</div><div class="ssc-sub">▲ +12 JAM INI</div></div>
+      <div class="ssc re"><div class="ssc-lbl">CRITICAL</div><div class="ssc-val" id="s2">12</div><div class="ssc-sub">MEMERLUKAN TINDAKAN</div></div>
+      <div class="ssc or"><div class="ssc-lbl">MONITORING</div><div class="ssc-val" id="s3">8</div><div class="ssc-sub">EVENT AKTIF</div></div>
+      <div class="ssc gr"><div class="ssc-lbl">HEALTH</div><div class="ssc-val" id="s4">98%</div><div class="ssc-sub">SISTEM NORMAL</div></div>
+    </div>
+    <div class="socmain">
+      <!-- LOG -->
+      <div class="panel" style="margin:8px 0 0 8px;">
+        <div class="cd tl"></div><div class="cd tr"></div><div class="cd bl"></div><div class="cd br"></div>
+        <div class="phdr">
+          <div class="pttl">INCIDENTS LOG</div>
+          <div style="display:flex;align-items:center;gap:5px;"><div class="ldot"></div><span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--red);letter-spacing:2px;">LIVE</span></div>
+        </div>
+        <div style="overflow-y:auto;flex:1;">
+          <table class="logtbl">
+            <thead><tr><th>IP</th><th>ATTACK</th><th>SEV</th><th>LOKASI</th><th>WAKTU</th></tr></thead>
+            <tbody id="socLog"></tbody>
+          </table>
+        </div>
+        <div class="ticker">
+          <span class="tklbl">▶ ALERT</span>
+          <span class="tktxt">⚠ DDoS terdeksi dari 103.155.12.4 — DKI Jakarta &nbsp;•&nbsp; ⚠ SQL Injection attempt port 3306 &nbsp;•&nbsp; ⚠ Brute force SSH 10.0.8.55 — Jawa Barat &nbsp;•&nbsp; ✓ Firewall diperbarui — 14 IP blacklisted &nbsp;•&nbsp; ⚠ Unusual traffic spike — Sumatera Utara</span>
+        </div>
+      </div>
+
+      <!-- CHART -->
+      <div class="panel" style="margin:8px 0 0 0;overflow:hidden;">
+        <div class="phdr"><div class="pttl">TREN SERANGAN (24 JAM)</div></div>
+        <div style="padding:10px;height:175px;position:relative;flex-shrink:0;">
+          <canvas id="trendChart"></canvas>
+        </div>
+        <div class="phdr" style="border-top:1px solid var(--border);border-bottom:none;flex-shrink:0;">
+          <div class="pttl">DISTRIBUSI SEVERITY</div>
+        </div>
+        <div style="padding:10px;height:145px;position:relative;flex-shrink:0;">
+          <canvas id="sevChart"></canvas>
+        </div>
+      </div>
+
+      <!-- RADAR + BARS -->
+      <div class="panel" style="margin:8px 8px 0 0;">
+        <div class="phdr"><div class="pttl">THREAT RADAR</div><span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--green);letter-spacing:2px;">ACTIVE</span></div>
+        <div class="radwrap"><canvas id="radar" width="160" height="160"></canvas></div>
+        <div class="threatbar">
+          <div class="trtl">REGIONAL THREAT LEVEL</div>
+          <div class="trow"><div class="trhdr"><span style="color:var(--text)">JAKARTA</span><span style="color:var(--cyan)">85%</span></div><div class="btrack"><div class="bfill r" style="width:85%"></div></div></div>
+          <div class="trow"><div class="trhdr"><span style="color:var(--text)">SURABAYA</span><span style="color:var(--cyan)">42%</span></div><div class="btrack"><div class="bfill o" style="width:42%"></div></div></div>
+          <div class="trow"><div class="trhdr"><span style="color:var(--text)">BALI</span><span style="color:var(--cyan)">12%</span></div><div class="btrack"><div class="bfill c" style="width:12%"></div></div></div>
+          <div class="trow"><div class="trhdr"><span style="color:var(--text)">MEDAN</span><span style="color:var(--cyan)" id="mdp">27%</span></div><div class="btrack"><div class="bfill o" id="mdb" style="width:27%"></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 2: MONITOR ══ -->
+<div class="page" id="page-monitor">
+  <div class="topbar">
+    <div class="tbl"><div class="pgico">🗺️</div><div class="pgtit"><h1>MONITOR ANCAMAN SIBER</h1><p>Real-time Threat Intelligence Dashboard</p></div></div>
+    <div class="tbr">
+      <div class="blive"><div class="dg"></div>LIVE</div>
+      <div class="blive" style="background:rgba(0,212,255,0.07);border-color:rgba(0,212,255,0.3);color:var(--cyan);">Total: <span id="mpTotal" style="font-weight:700;font-size:13px;margin-left:3px;">15</span></div>
+    </div>
+  </div>
+  <div class="mapbody">
+    <div class="mapc">
+      <div id="map"></div>
+      <div class="mapstats">
+        <div class="ms t"><div class="ms-lbl">TOTAL</div><div class="ms-val" id="ms1">15</div></div>
+        <div class="ms cr"><div class="ms-lbl">KRITIS</div><div class="ms-val" id="ms2">5</div></div>
+        <div class="ms hi"><div class="ms-lbl">TINGGI</div><div class="ms-val" id="ms3">6</div></div>
+        <div class="ms me"><div class="ms-lbl">SEDANG</div><div class="ms-val" id="ms4">4</div></div>
+      </div>
+    </div>
+    <div class="evpanel">
+      <div class="ephdr"><div class="epic">📋</div><div class="epttl">PERISTIWA TERBARU</div></div>
+      <div class="evlist" id="mapEv"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 3: HUNTING ══ -->
+<div class="page" id="page-hunting">
+  <div class="topbar">
+    <div class="tbl"><div class="pgico">🎯</div><div class="pgtit"><h1>THREAT HUNTING</h1><p>Pencarian proaktif ancaman di seluruh data historis</p></div></div>
+    <div class="tbr"><div class="blive" style="background:rgba(255,214,0,0.07);border-color:rgba(255,214,0,0.28);color:var(--yellow);">⚠ 15 ANCAMAN AKTIF</div></div>
+  </div>
+  <div class="thbody">
+    <div class="filterbox">
+      <div class="fbttl">Filter Pencarian</div>
+      <div class="fgrid">
+        <div class="fg"><label class="flbl">IP ADDRESS</label><input class="fin" id="fIp" placeholder="Cari IP..."></div>
+        <div class="fg"><label class="flbl">JENIS ANCAMAN</label><input class="fin" id="fType" placeholder="Cari jenis..."></div>
+        <div class="fg"><label class="flbl">TINGKAT KEPARAHAN</label><div class="sw"><select class="fsel" id="fSev"><option value="">Semua</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option></select></div></div>
+        <div class="fg"><label class="flbl">STATUS</label><div class="sw"><select class="fsel" id="fSt"><option value="">Semua</option><option value="active">Active</option><option value="blocked">Blocked</option><option value="resolved">Resolved</option></select></div></div>
+        <div class="fg"><label class="flbl">PROVINSI</label><div class="sw"><select class="fsel" id="fPr"><option value="">Semua Provinsi</option><option>DKI Jakarta</option><option>Jawa Barat</option><option>Jawa Tengah</option><option>Jawa Timur</option><option>Yogyakarta</option><option>Bali</option><option>Sumatera Utara</option><option>Sumatera Selatan</option><option>Kalimantan Timur</option><option>Sulawesi Selatan</option><option>Papua</option><option>Lampung</option><option>Riau</option><option>Aceh</option><option>Banten</option></select></div></div>
+        <div class="fg"><label class="flbl">RENTANG WAKTU</label><div class="dg2"><input class="fin" id="fD1" type="date"><input class="fin" id="fD2" type="date"></div></div>
+      </div>
+      <div class="fact"><button class="bcari" onclick="doSearch()">🔍 Cari Ancaman</button><button class="brst" onclick="doReset()">Reset</button></div>
+    </div>
+    <div class="resbox">
+      <div class="lbar" id="lbar"></div>
+      <div class="rbhdr"><div class="rbttl">Hasil Pencarian</div><div class="fbdg" id="fbdg">15 ancaman ditemukan</div></div>
+      <div class="emst" id="emst"><div class="emico">🎯</div><div class="emtxt">Gunakan filter di atas untuk memulai pencarian ancaman</div></div>
+      <div id="tblW" style="display:none;">
+        <div class="tblw"><table class="htbl">
+          <thead><tr><th onclick="sortBy('time')">🕐 WAKTU ↕</th><th onclick="sortBy('type')">JENIS ↕</th><th onclick="sortBy('sev')">KEPARAHAN ↕</th><th onclick="sortBy('ip')">IP ADDRESS ↕</th><th onclick="sortBy('loc')">LOKASI ↕</th><th onclick="sortBy('status')">STATUS ↕</th><th>AKSI</th></tr></thead>
+          <tbody id="htb"></tbody>
+        </table></div>
+        <div class="pgn" id="pgn"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 4: REPORT ══ -->
+<div class="page" id="page-report">
+  <div class="topbar">
+    <div class="tbl"><div class="pgico">📄</div><div class="pgtit"><h1>LAPORAN KEAMANAN</h1><p>Security Report — Februari 2026</p></div></div>
+    <div class="tbr">
+      <button class="btn-export" onclick="exportReport()">⬇️ Export PDF</button>
+    </div>
+  </div>
+  <div class="repbody" id="repContent">
+    <div class="rep-grid">
+      <div class="rep-card c1"><div class="rc-lbl">TOTAL INSIDEN</div><div class="rc-val" id="rTotal">1254</div><div class="rc-sub">Bulan ini</div></div>
+      <div class="rep-card c2"><div class="rc-lbl">CRITICAL</div><div class="rc-val" id="rCrit">12</div><div class="rc-sub">Perlu tindakan segera</div></div>
+      <div class="rep-card c3"><div class="rc-lbl">RESOLVED</div><div class="rc-val">8</div><div class="rc-sub">Berhasil ditangani</div></div>
+      <div class="rep-card c4"><div class="rc-lbl">BLOCKED IPs</div><div class="rc-val">47</div><div class="rc-sub">IP diblokir</div></div>
+      <div class="rep-card c5"><div class="rc-lbl">AVG RESPONSE</div><div class="rc-val">4.2m</div><div class="rc-sub">Rata-rata respon</div></div>
+      <div class="rep-card c6"><div class="rc-lbl">SYSTEM UPTIME</div><div class="rc-val">99.8%</div><div class="rc-sub">30 hari terakhir</div></div>
+    </div>
+    <div class="rep-row">
+      <div class="rep-box">
+        <div class="rep-box-ttl">TREN SERANGAN 7 HARI</div>
+        <div class="rep-chart-wrap"><canvas id="repChart"></canvas></div>
+      </div>
+      <div class="rep-box">
+        <div class="rep-box-ttl">TOP JENIS ANCAMAN</div>
+        <div class="rep-timeline" id="topThreats">
+          <div class="top-threat"><span class="tt-name">DDoS Attack</span><span class="tt-cnt">312</span></div>
+          <div class="top-threat"><span class="tt-name">Brute Force</span><span class="tt-cnt">287</span></div>
+          <div class="top-threat"><span class="tt-name">SQL Injection</span><span class="tt-cnt">198</span></div>
+          <div class="top-threat"><span class="tt-name">Phishing</span><span class="tt-cnt">156</span></div>
+          <div class="top-threat"><span class="tt-name">Malware</span><span class="tt-cnt">134</span></div>
+          <div class="top-threat"><span class="tt-name">Port Scanning</span><span class="tt-cnt">88</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="rep-row">
+      <div class="rep-box">
+        <div class="rep-box-ttl">TIMELINE INSIDEN KRITIS</div>
+        <div class="rep-timeline">
+          <div class="tl-item"><div class="tl-dot critical"></div><div><div class="tl-time">23 Feb 2026 13:36</div><div class="tl-desc">Ransomware C2 — Kalimantan Timur</div><div class="tl-sub">IP: 10.58.50.58 | Port: 445 | Blocked</div></div></div>
+          <div class="tl-item"><div class="tl-dot critical"></div><div><div class="tl-time">23 Feb 2026 11:22</div><div class="tl-desc">Zero-Day Exploit — Yogyakarta</div><div class="tl-sub">IP: 192.168.99.99 | Port: 443 | Active</div></div></div>
+          <div class="tl-item"><div class="tl-dot high"></div><div><div class="tl-time">23 Feb 2026 09:14</div><div class="tl-desc">Botnet Activity — Banten</div><div class="tl-sub">IP: 10.100.100.10 | Port: 6667 | Malicious</div></div></div>
+          <div class="tl-item"><div class="tl-dot high"></div><div><div class="tl-time">22 Feb 2026 22:55</div><div class="tl-desc">Data Breach Attempt — Papua</div><div class="tl-sub">IP: 172.30.0.200 | Port: 5432 | Active</div></div></div>
+          <div class="tl-item"><div class="tl-dot medium"></div><div><div class="tl-time">22 Feb 2026 18:30</div><div class="tl-desc">Crypto Mining — Riau</div><div class="tl-sub">IP: 10.20.30.40 | Blocked</div></div></div>
+        </div>
+      </div>
+      <div class="rep-box">
+        <div class="rep-box-ttl">DISTRIBUSI PER PROVINSI</div>
+        <div class="rep-chart-wrap"><canvas id="provChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /pages -->
+</div><!-- /app -->
+
+<!-- MODAL -->
+<div class="modov" id="modOv">
+  <div class="modal">
+    <div class="mbar"></div>
+    <div class="mhdr"><div><div class="mttl" id="mTtl">-</div><div id="mSev" style="margin-top:4px;"></div></div><button class="mcls" onclick="closeMod()">✕</button></div>
+    <div class="mbdy" id="mBdy"></div>
+    <div class="mact"><button class="bblk" onclick="closeMod()">🚫 Block IP</button><button class="bres" onclick="closeMod()">✓ Mark Resolved</button></div>
+  </div>
+</div>
+
+<script>
+// ══ NAVIGATION ══
+let mapInited=false,repChartsInited=false;
+function goPage(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  el.classList.add('active');
+  if(id==='monitor'&&!mapInited)initMap();
+  if(id==='report'&&!repChartsInited)initRepCharts();
+}
+
+// ══ CLOCK ══
+function tick(){document.getElementById('clock').textContent=new Date().toTimeString().slice(0,8);}
+tick();setInterval(tick,1000);
+
+// ══ SOUND ══
+let soundOn=true;
+const AC=new (window.AudioContext||window.webkitAudioContext)();
+function toggleSound(){soundOn=!soundOn;document.getElementById('sndBtn').textContent=soundOn?'🔊':'🔇';document.getElementById('sndBtn').classList.toggle('muted',!soundOn);}
+function playAlert(type){
+  if(!soundOn)return;
+  try{
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.connect(g);g.connect(AC.destination);
+    if(type==='critical'){o.frequency.setValueAtTime(880,AC.currentTime);o.frequency.setValueAtTime(660,AC.currentTime+0.1);o.frequency.setValueAtTime(880,AC.currentTime+0.2);}
+    else{o.frequency.setValueAtTime(660,AC.currentTime);o.frequency.setValueAtTime(550,AC.currentTime+0.15);}
+    g.gain.setValueAtTime(0.3,AC.currentTime);g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.4);
+    o.start();o.stop(AC.currentTime+0.4);
+  }catch(e){}
+}
+
+// ══ NOTIF ══
+let notifQ=[];
+function showNotif(type,title,sub){
+  const div=document.createElement('div');
+  div.className=`notif ${type}`;
+  const ico=type==='critical'?'🚨':type==='high'?'⚠️':'🔔';
+  div.innerHTML=`<span class="notif-ico">${ico}</span><div style="flex:1"><div class="notif-ttl">${title}</div><div class="notif-sub">${sub}</div><div class="notif-sev ${type}">${type.toUpperCase()} ALERT</div></div><button class="notif-close" onclick="this.parentElement.remove()">✕</button><div class="notif-bar ${type}"></div>`;
+  document.getElementById('notifStack').prepend(div);
+  setTimeout(()=>div.classList.add('show'),50);
+  setTimeout(()=>{div.classList.remove('show');setTimeout(()=>div.remove(),400);},4500);
+  if(type==='critical'){document.getElementById('flashOv').classList.remove('flash');void document.getElementById('flashOv').offsetWidth;document.getElementById('flashOv').classList.add('flash');}
+  playAlert(type);
+}
+
+// ══ RADAR ══
+const rc=document.getElementById('radar'),rctx=rc.getContext('2d');
+let ra=0;
+const blips=Array.from({length:8},()=>({r:Math.random()*.7+.15,a:Math.random()*Math.PI*2}));
+function drawRadar(){
+  const W=rc.width,H=rc.height,cx=W/2,cy=H/2,R=W/2-3;
+  rctx.clearRect(0,0,W,H);
+  rctx.fillStyle='#040c14';rctx.beginPath();rctx.arc(cx,cy,R,0,Math.PI*2);rctx.fill();
+  for(let i=1;i<=4;i++){rctx.strokeStyle=`rgba(0,200,255,${.07+i*.025})`;rctx.lineWidth=1;rctx.beginPath();rctx.arc(cx,cy,R*i/4,0,Math.PI*2);rctx.stroke();}
+  rctx.strokeStyle='rgba(0,200,255,.08)';rctx.lineWidth=1;
+  [-1,0,1].forEach(i=>{rctx.beginPath();rctx.moveTo(cx+i*R/2,cy-R);rctx.lineTo(cx+i*R/2,cy+R);rctx.stroke();rctx.beginPath();rctx.moveTo(cx-R,cy+i*R/2);rctx.lineTo(cx+R,cy+i*R/2);rctx.stroke();});
+  for(let i=0;i<60;i++){const a=ra-(i*Math.PI/180);const al=(60-i)/60*.28;rctx.strokeStyle=`rgba(0,255,157,${al})`;rctx.lineWidth=R*2/60;rctx.beginPath();rctx.arc(cx,cy,R/2,a,a+.018);rctx.stroke();}
+  rctx.strokeStyle='#00ff9d';rctx.lineWidth=1.5;rctx.shadowColor='#00ff9d';rctx.shadowBlur=7;
+  rctx.beginPath();rctx.moveTo(cx,cy);rctx.lineTo(cx+Math.cos(ra)*R,cy+Math.sin(ra)*R);rctx.stroke();rctx.shadowBlur=0;
+  blips.forEach(b=>{const diff=((b.a-ra)%(Math.PI*2)+Math.PI*2)%(Math.PI*2);const fade=Math.max(0,1-diff/(Math.PI*1.5));if(fade>0){const bx=cx+Math.cos(b.a)*b.r*R,by=cy+Math.sin(b.a)*b.r*R;rctx.beginPath();rctx.arc(bx,by,2.5,0,Math.PI*2);rctx.fillStyle=`rgba(255,45,85,${fade})`;rctx.shadowColor='#ff2d55';rctx.shadowBlur=5*fade;rctx.fill();rctx.shadowBlur=0;}});
+  rctx.strokeStyle='rgba(0,200,255,.35)';rctx.lineWidth=1.5;rctx.beginPath();rctx.arc(cx,cy,R,0,Math.PI*2);rctx.stroke();
+  ra+=.025;requestAnimationFrame(drawRadar);
+}
+drawRadar();
+
+// ══ TREND CHART ══
+const trendCtx=document.getElementById('trendChart').getContext('2d');
+const hours=Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}:00`);
+const trendData={labels:hours,datasets:[
+  {label:'Critical',data:[2,1,3,2,5,4,3,2,4,6,8,5,4,3,7,9,6,4,5,8,10,7,5,12],borderColor:'#ff2d55',backgroundColor:'rgba(255,45,85,0.08)',fill:true,tension:0.4,pointRadius:0},
+  {label:'High',data:[4,3,5,4,7,6,5,4,6,8,10,7,6,5,9,11,8,6,7,10,12,9,7,8],borderColor:'#ff8c00',backgroundColor:'rgba(255,140,0,0.06)',fill:true,tension:0.4,pointRadius:0},
+  {label:'Medium',data:[6,5,7,6,9,8,7,6,8,10,12,9,8,7,11,13,10,8,9,12,14,11,9,10],borderColor:'#ffd600',backgroundColor:'rgba(255,214,0,0.05)',fill:true,tension:0.4,pointRadius:0},
+]};
+new Chart(trendCtx,{type:'line',data:trendData,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#4a6a85',font:{family:'Share Tech Mono',size:9},boxWidth:10}},tooltip:{backgroundColor:'#0d1428',borderColor:'#1a2a4a',borderWidth:1,titleColor:'#00d4ff',bodyColor:'#a8c4d8',titleFont:{family:'Share Tech Mono'},bodyFont:{family:'Share Tech Mono'}}},scales:{x:{ticks:{color:'#4a6a85',font:{family:'Share Tech Mono',size:8},maxTicksLimit:8},grid:{color:'rgba(26,42,74,0.4)'}},y:{ticks:{color:'#4a6a85',font:{family:'Share Tech Mono',size:8}},grid:{color:'rgba(26,42,74,0.4)'}}}}});
+
+const sevCtx=document.getElementById('sevChart').getContext('2d');
+new Chart(sevCtx,{type:'doughnut',data:{labels:['Critical','High','Medium','Low'],datasets:[{data:[12,18,24,8],backgroundColor:['rgba(255,45,85,0.8)','rgba(255,140,0,0.8)','rgba(255,214,0,0.8)','rgba(0,255,157,0.8)'],borderColor:['#ff2d55','#ff8c00','#ffd600','#00ff9d'],borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#4a6a85',font:{family:'Share Tech Mono',size:8},boxWidth:8,padding:6}}},cutout:'65%'}});
+
+// ══ SOC LOG ══
+const ATKS=[
+  {ip:'103.155.12.4',type:'DDoS Attack',sev:'critical',loc:'DKI Jakarta'},
+  {ip:'45.12.110.89',type:'SQL Injection',sev:'high',loc:'Jawa Timur'},
+  {ip:'182.22.45.1',type:'Malware Inject',sev:'medium',loc:'Bali'},
+  {ip:'10.0.8.55',type:'Brute Force',sev:'low',loc:'Jawa Barat'},
+  {ip:'172.16.0.4',type:'Unusual Traffic',sev:'medium',loc:'Sumatera Utara'},
+  {ip:'91.107.200.3',type:'Phishing Probe',sev:'high',loc:'DKI Jakarta'},
+  {ip:'58.243.100.7',type:'Ransomware C2',sev:'critical',loc:'Sulawesi Selatan'},
+  {ip:'139.59.4.88',type:'XSS Attempt',sev:'medium',loc:'Yogyakarta'},
+];
+const SVL={critical:'CRITICAL',high:'HIGH',medium:'MEDIUM',low:'LOW'};
+let s1=1254,s2=12,s3=8;
+function gt(){return new Date().toTimeString().slice(0,8);}
+function addSocRow(e){
+  const tr=document.createElement('tr');tr.className='ne';
+  tr.innerHTML=`<td style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);">${e.ip}</td><td class="aname">${e.type}</td><td><span class="badge ${e.sev}">${SVL[e.sev]}</span></td><td style="font-size:11px;">${e.loc}</td><td style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);">${gt()}</td>`;
+  const tb=document.getElementById('socLog');tb.insertBefore(tr,tb.firstChild);
+  if(tb.children.length>14)tb.removeChild(tb.lastChild);
+}
+ATKS.slice(0,6).forEach(e=>addSocRow(e));
+
+let notifCooldown=false;
+setInterval(()=>{
+  const e=ATKS[Math.floor(Math.random()*ATKS.length)];
+  const ne={...e,ip:e.ip.replace(/\d+$/,Math.floor(Math.random()*255))};
+  addSocRow(ne);
+  s1+=Math.floor(Math.random()*3)+1;
+  document.getElementById('s1').textContent=s1.toLocaleString();
+  document.getElementById('rTotal').textContent=s1.toLocaleString();
+  if(ne.sev==='critical'){s2++;document.getElementById('s2').textContent=s2;document.getElementById('rCrit').textContent=s2;}
+  s3=Math.max(5,s3+(Math.random()>.5?1:-1));document.getElementById('s3').textContent=s3;
+  const p=Math.floor(Math.random()*40)+20;document.getElementById('mdp').textContent=p+'%';document.getElementById('mdb').style.width=p+'%';
+  if(!notifCooldown&&(ne.sev==='critical'||ne.sev==='high')){
+    notifCooldown=true;
+    showNotif(ne.sev,ne.type,`IP: ${ne.ip} — ${ne.loc}`);
+    setTimeout(()=>notifCooldown=false,6000);
+  }
+},3500);
+setInterval(()=>{document.getElementById('s4').textContent=(96+Math.floor(Math.random()*3))+'%';},9000);
+
+// ══ MAP ══
+const THREATS=[
+  {type:'DDoS Attack',sev:'critical',loc:'DKI Jakarta',lat:-6.2,lng:106.8,ip:'192.168.1.108'},
+  {type:'SQL Injection',sev:'critical',loc:'Jawa Tengah',lat:-7.15,lng:110.4,ip:'172.16.0.88'},
+  {type:'Brute Force',sev:'high',loc:'Jawa Barat',lat:-6.9,lng:107.6,ip:'10.0.8.55'},
+  {type:'Port Scanning',sev:'medium',loc:'Jawa Timur',lat:-7.5,lng:112.2,ip:'192.168.5.22'},
+  {type:'Malware Inject',sev:'critical',loc:'Bali',lat:-8.35,lng:115.1,ip:'10.10.5.12'},
+  {type:'XSS Attack',sev:'high',loc:'Sumatera Utara',lat:3.6,lng:98.7,ip:'172.20.1.44'},
+  {type:'Ransomware C2',sev:'critical',loc:'Sulawesi Selatan',lat:-5.15,lng:119.4,ip:'192.168.8.77'},
+  {type:'Phishing Probe',sev:'high',loc:'Kalimantan Timur',lat:0.5,lng:117.1,ip:'10.5.0.33'},
+  {type:'Unusual Traffic',sev:'medium',loc:'Sumatera Selatan',lat:-3.3,lng:104.7,ip:'172.18.2.9'},
+  {type:'CSRF Attack',sev:'high',loc:'Yogyakarta',lat:-7.8,lng:110.4,ip:'192.168.3.55'},
+  {type:'Zero-Day',sev:'critical',loc:'Papua',lat:-4.3,lng:138.0,ip:'10.9.0.71'},
+  {type:'DNS Hijack',sev:'medium',loc:'NTT',lat:-8.6,lng:121.0,ip:'172.16.9.2'},
+  {type:'Data Breach',sev:'high',loc:'Lampung',lat:-5.4,lng:105.3,ip:'10.1.0.88'},
+  {type:'Botnet Activity',sev:'medium',loc:'Kalimantan Selatan',lat:-3.3,lng:114.6,ip:'192.168.7.13'},
+  {type:'API Abuse',sev:'high',loc:'Aceh',lat:4.7,lng:96.7,ip:'172.22.0.5'},
+];
+const SC={critical:'#ff2d55',high:'#ff8c00',medium:'#ffd600',low:'#00ff9d'};
+let mc={total:15,crit:5,high:6,med:4};
+let mapObj=null;
+function initMap(){
+  mapInited=true;
+  mapObj=L.map('map',{center:[-2.5,118],zoom:5});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(mapObj);
+  THREATS.forEach(t=>addMkr(t));
+  [...THREATS].reverse().forEach(t=>{t._t=gt();addEvc(t);});
+  setInterval(()=>{
+    const base=THREATS[Math.floor(Math.random()*THREATS.length)];
+    const nt={...base,lat:base.lat+(Math.random()-.5)*2,lng:base.lng+(Math.random()-.5)*2,ip:`${[10,172,192][Math.floor(Math.random()*3)]}.${rf()}.${rf()}.${rf()}`,_t:gt()};
+    addMkr(nt);addEvc(nt,true);
+    mc.total++;if(nt.sev==='critical')mc.crit++;else if(nt.sev==='high')mc.high++;else mc.med++;
+    document.getElementById('ms1').textContent=mc.total;document.getElementById('ms2').textContent=mc.crit;
+    document.getElementById('ms3').textContent=mc.high;document.getElementById('ms4').textContent=mc.med;
+    document.getElementById('mpTotal').textContent=mc.total;
+  },4200);
+}
+function rf(){return Math.floor(Math.random()*255);}
+function addMkr(t){
+  const c=SC[t.sev],sz=t.sev==='critical'?15:t.sev==='high'?12:9;
+  const icon=L.divIcon({className:'',html:`<div style="position:relative;width:${sz*3}px;height:${sz*3}px;display:flex;align-items:center;justify-content:center;"><div style="position:absolute;width:${sz*3}px;height:${sz*3}px;border-radius:50%;background:${c}22;animation:rng 2s ease-out infinite;"></div><div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${c};box-shadow:0 0 ${sz}px ${c};z-index:1;"></div></div><style>@keyframes rng{0%{transform:scale(1);opacity:.7;}100%{transform:scale(1.8);opacity:0;}}</style>`,iconSize:[sz*3,sz*3],iconAnchor:[sz*3/2,sz*3/2]});
+  L.marker([t.lat,t.lng],{icon}).addTo(mapObj).bindPopup(`<div style="font-family:'Share Tech Mono',monospace;background:#0d1428;color:#a8c4d8;border:1px solid #1a2a4a;border-radius:8px;padding:10px;min-width:160px;"><div style="color:${c};font-weight:700;font-size:12px;margin-bottom:4px;">${t.type}</div><div style="font-size:10px;margin-bottom:2px;">📍 ${t.loc}</div><div style="font-size:10px;color:${c};letter-spacing:1px;">${t.sev.toUpperCase()}</div></div>`,{className:'',maxWidth:180});
+}
+function addEvc(t,pre=false){
+  const c=document.createElement('div');c.className=`evc ${t.sev}${pre?' nfl':''}`;
+  c.innerHTML=`<div class="evr1"><span class="evtm">${t._t||gt()}</span><span class="evsv ${t.sev}">${t.sev.toUpperCase()}</span></div><div class="evtp">${t.type}</div><div class="evmt"><span class="evlc">📍 ${t.loc}</span><span class="evip">${t.ip}</span></div>`;
+  c.onclick=()=>{if(mapObj)mapObj.flyTo([t.lat,t.lng],7,{animate:true,duration:1});};
+  const el=document.getElementById('mapEv');
+  if(pre)el.insertBefore(c,el.firstChild);else el.appendChild(c);
+  while(el.children.length>25)el.removeChild(el.lastChild);
+}
+
+// ══ HUNTING ══
+const HDATA=[
+  {time:'23 Feb 2026 13:36',type:'Ransomware',sev:'critical',ip:'10.58.50.58',loc:'Kalimantan Timur',status:'active',risk:5,mal:false,port:445,proto:'SMB'},
+  {time:'23 Feb 2026 13:36',type:'Zero-Day Exploit',sev:'critical',ip:'192.168.99.99',loc:'DI Yogyakarta',status:'active',risk:5,mal:false,port:443,proto:'HTTPS'},
+  {time:'23 Feb 2026 13:36',type:'SQL Injection',sev:'critical',ip:'172.16.0.88',loc:'Jawa Tengah',status:'blocked',risk:5,mal:false,port:3306,proto:'MySQL'},
+  {time:'23 Feb 2026 13:36',type:'Unauthorized Access',sev:'critical',ip:'172.20.0.99',loc:'Sumatera Selatan',status:'blocked',risk:5,mal:false,port:22,proto:'SSH'},
+  {time:'23 Feb 2026 13:36',type:'DDoS Attack',sev:'critical',ip:'192.168.1.100',loc:'DKI Jakarta',status:'active',risk:5,mal:false,port:80,proto:'HTTP'},
+  {time:'23 Feb 2026 13:36',type:'Phishing Attack',sev:'high',ip:'192.168.100.50',loc:'Sumatera Utara',status:'active',risk:4,mal:false,port:25,proto:'SMTP'},
+  {time:'23 Feb 2026 13:36',type:'Man-in-the-Middle',sev:'high',ip:'192.168.159.33',loc:'Lampung',status:'active',risk:4,mal:false,port:8080,proto:'HTTP'},
+  {time:'23 Feb 2026 13:36',type:'Data Breach Attempt',sev:'high',ip:'172.30.0.200',loc:'Papua',status:'active',risk:4,mal:false,port:5432,proto:'PostgreSQL'},
+  {time:'23 Feb 2026 13:36',type:'Malware Distribution',sev:'high',ip:'10.10.10.15',loc:'Bali',status:'active',risk:4,mal:false,port:8443,proto:'HTTPS'},
+  {time:'23 Feb 2026 13:36',type:'XSS Attack',sev:'medium',ip:'192.168.2.77',loc:'Sulawesi Selatan',status:'resolved',risk:3,mal:false,port:80,proto:'HTTP'},
+  {time:'23 Feb 2026 13:36',type:'Botnet Activity',sev:'high',ip:'10.100.100.10',loc:'Banten',status:'active',risk:99,mal:true,port:6667,proto:'IRC'},
+  {time:'23 Feb 2026 13:36',type:'Brute Force Login',sev:'high',ip:'10.0.8.55',loc:'Jawa Barat',status:'active',risk:4,mal:false,port:22,proto:'SSH'},
+  {time:'23 Feb 2026 13:36',type:'Port Scanning',sev:'medium',ip:'192.168.5.22',loc:'Jawa Timur',status:'active',risk:3,mal:false,port:0,proto:'TCP'},
+  {time:'23 Feb 2026 13:36',type:'Crypto Mining',sev:'medium',ip:'10.20.30.40',loc:'Riau',status:'blocked',risk:3,mal:false,port:3333,proto:'Stratum'},
+  {time:'23 Feb 2026 13:36',type:'DNS Spoofing',sev:'medium',ip:'172.25.0.44',loc:'Aceh',status:'active',risk:3,mal:false,port:53,proto:'DNS'},
+];
+let hFil=[...HDATA],hSk=null,hAsc=true,hPg=1;
+const PER=10;
+function doSearch(){
+  const ip=document.getElementById('fIp').value.trim().toLowerCase();
+  const tp=document.getElementById('fType').value.trim().toLowerCase();
+  const sv=document.getElementById('fSev').value;
+  const st=document.getElementById('fSt').value;
+  const pr=document.getElementById('fPr').value;
+  document.getElementById('lbar').classList.add('show');
+  document.getElementById('emst').style.display='none';
+  document.getElementById('tblW').style.display='none';
+  setTimeout(()=>{
+    document.getElementById('lbar').classList.remove('show');
+    hFil=HDATA.filter(d=>{
+      if(ip&&!d.ip.includes(ip))return false;
+      if(tp&&!d.type.toLowerCase().includes(tp))return false;
+      if(sv&&d.sev!==sv)return false;
+      if(st&&d.status!==st)return false;
+      if(pr&&d.loc!==pr)return false;
+      return true;
+    });
+    hPg=1;renderH();
+  },500);
+}
+function doReset(){
+  ['fIp','fType'].forEach(i=>document.getElementById(i).value='');
+  ['fSev','fSt','fPr','fD1','fD2'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('emst').style.display='flex';
+  document.getElementById('tblW').style.display='none';
+  document.getElementById('fbdg').textContent='15 ancaman ditemukan';
+}
+function sortBy(k){
+  if(hSk===k)hAsc=!hAsc;else{hSk=k;hAsc=true;}
+  const so={critical:4,high:3,medium:2,low:1};
+  hFil.sort((a,b)=>{let va=a[k]??'',vb=b[k]??'';if(k==='sev'){va=so[va]||0;vb=so[vb]||0;}return va<vb?(hAsc?-1:1):va>vb?(hAsc?1:-1):0;});
+  renderH();
+}
+function renderH(){
+  const tot=hFil.length;document.getElementById('fbdg').textContent=`${tot} ancaman ditemukan`;
+  if(tot===0){document.getElementById('emst').style.display='flex';document.getElementById('emst').querySelector('.emtxt').textContent='Tidak ada ancaman yang cocok';document.getElementById('tblW').style.display='none';return;}
+  document.getElementById('emst').style.display='none';document.getElementById('tblW').style.display='block';
+  const st=(hPg-1)*PER,pg=hFil.slice(st,st+PER),tb=document.getElementById('htb');tb.innerHTML='';
+  pg.forEach((d,i)=>{
+    const tr=document.createElement('tr');tr.style.animationDelay=`${i*.04}s`;
+    tr.innerHTML=`<td><div class="tdtm">${d.time}</div></td><td><div class="tdtp">${d.type}</div><div class="rtag${d.mal?' mal':''}">○ Risk:${d.risk}/100${d.mal?' Malicious':''}</div></td><td><span class="sbdg ${d.sev}">${d.sev.toUpperCase()}</span></td><td><div class="tdip">${d.ip}</div></td><td><div class="tdlc">${d.loc}</div></td><td><span class="stbdg ${d.status}">${d.status.toUpperCase()}</span></td><td><button class="bdtl" onclick="openMod(${HDATA.indexOf(d)})">Detail</button></td>`;
+    tb.appendChild(tr);
+  });
+  const tp2=Math.ceil(tot/PER),pn=document.getElementById('pgn');pn.innerHTML='';
+  if(tp2>1){const ni=document.createElement('span');ni.className='pgni';ni.textContent=`${st+1}–${Math.min(st+PER,tot)} dari ${tot}`;pn.appendChild(ni);for(let p=1;p<=tp2;p++){const b=document.createElement('button');b.className=`pgb${p===hPg?' active':''}`;b.textContent=p;b.onclick=()=>{hPg=p;renderH();};pn.appendChild(b);}}
+}
+function openMod(i){
+  const d=HDATA[i];
+  document.getElementById('mTtl').textContent=d.type;
+  document.getElementById('mSev').innerHTML=`<span class="sbdg ${d.sev}">${d.sev.toUpperCase()}</span>`;
+  document.getElementById('mBdy').innerHTML=`<div class="mrow"><span class="mrl">IP ADDRESS</span><span class="mrv">${d.ip}</span></div><div class="mrow"><span class="mrl">LOKASI</span><span class="mrv">${d.loc}</span></div><div class="mrow"><span class="mrl">STATUS</span><span class="stbdg ${d.status}">${d.status.toUpperCase()}</span></div><div class="mrow"><span class="mrl">PROTOKOL</span><span class="mrv">${d.proto}</span></div><div class="mrow"><span class="mrl">PORT</span><span class="mrv">${d.port||'N/A'}</span></div><div class="mrow"><span class="mrl">RISK SCORE</span><span class="mrv" style="color:${d.risk>4?'var(--red)':d.risk>2?'var(--orange)':'var(--green)'}">${d.risk}/100${d.mal?' — Malicious':''}</span></div><div class="mrow"><span class="mrl">WAKTU</span><span class="mrv">${d.time}</span></div>`;
+  document.getElementById('modOv').classList.add('open');
+}
+function closeMod(){document.getElementById('modOv').classList.remove('open');}
+document.getElementById('modOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeMod();});
+setTimeout(()=>doSearch(),400);
+
+// ══ REPORT CHARTS ══
+function initRepCharts(){
+  repChartsInited=true;
+  const rc2=document.getElementById('repChart').getContext('2d');
+  new Chart(rc2,{type:'bar',data:{labels:['22 Feb','23 Feb','24 Feb','25 Feb','26 Feb','27 Feb','28 Feb'],datasets:[{label:'Insiden',data:[142,198,176,210,187,224,187],backgroundColor:'rgba(0,212,255,0.2)',borderColor:'#00d4ff',borderWidth:1.5,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0d1428',borderColor:'#1a2a4a',borderWidth:1,titleColor:'#00d4ff',bodyColor:'#a8c4d8',titleFont:{family:'Share Tech Mono'},bodyFont:{family:'Share Tech Mono'}}},scales:{x:{ticks:{color:'#4a6a85',font:{family:'Share Tech Mono',size:9}},grid:{color:'rgba(26,42,74,0.4)'}},y:{ticks:{color:'#4a6a85',font:{family:'Share Tech Mono',size:9}},grid:{color:'rgba(26,42,74,0.4)'}}}}});
+  const pc=document.getElementById('provChart').getContext('2d');
+  new Chart(pc,{type:'bar',data:{labels:['Jakarta','Jawa Barat','Jawa Tengah','Jawa Timur','Bali','Sulawesi','Papua'],datasets:[{label:'Insiden',data:[312,198,176,154,134,98,76],backgroundColor:['rgba(255,45,85,0.7)','rgba(255,140,0,0.7)','rgba(255,214,0,0.7)','rgba(0,212,255,0.7)','rgba(0,255,157,0.7)','rgba(100,100,255,0.7)','rgba(255,100,200,0.7)'],borderWidth:0,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0d1428',borderColor:'#1a2a4a',borderWidth:1,titleColor:'#00d4ff',bodyColor:'#a8c4d8',titleFont:{family:'Share Tech Mono'},bodyFont:{family:'Share Tech Mono'}}},scales:{x:{ticks:{color:'#4a6a85',font:{family:'Share Tech Mono',size:8}},grid:{color:'rgba(26,42,74,0.4)'}},y:{ticks:{color:'#a8c4d8',font:{family:'Share Tech Mono',size:8}},grid:{display:false}}}}});
+}
+
+// ══ EXPORT PDF ══
+function exportReport(){
+  const btn=document.querySelector('.btn-export');
+  btn.textContent='⏳ Generating...';btn.disabled=true;
+  setTimeout(()=>{
+    const content=document.getElementById('repContent');
+    const w=window.open('','_blank');
+    w.document.write(`<!DOCTYPE html><html><head><title>Laporan Keamanan FORTUNA SOC - Feb 2026</title>
+    <style>body{font-family:monospace;background:#fff;color:#000;padding:40px;max-width:900px;margin:0 auto;}
+    h1{font-size:24px;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:20px;}
+    h2{font-size:16px;margin:20px 0 10px;border-left:4px solid #000;padding-left:10px;}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;}
+    .card{border:1px solid #ccc;padding:12px;border-radius:4px;}
+    .card-lbl{font-size:10px;letter-spacing:2px;color:#666;margin-bottom:4px;}
+    .card-val{font-size:28px;font-weight:700;}
+    table{width:100%;border-collapse:collapse;margin-top:10px;}
+    th,td{border:1px solid #ddd;padding:8px 12px;text-align:left;font-size:12px;}
+    th{background:#f0f0f0;font-size:10px;letter-spacing:1px;}
+    .badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;}
+    .critical{background:#ffe5e9;color:#c00;}
+    .high{background:#fff3e0;color:#c60;}
+    .medium{background:#fffde7;color:#886;}
+    .footer{margin-top:40px;border-top:1px solid #ddd;padding-top:10px;font-size:10px;color:#999;text-align:center;}
+    @media print{body{padding:20px;}}</style></head><body>
+    <h1>🛡️ LAPORAN KEAMANAN SIBER — FORTUNA SOC</h1>
+    <p style="color:#666;font-size:12px;">Periode: Februari 2026 | Dibuat: ${new Date().toLocaleString('id-ID')}</p>
+    <h2>RINGKASAN EKSEKUTIF</h2>
+    <div class="grid">
+      <div class="card"><div class="card-lbl">TOTAL INSIDEN</div><div class="card-val">1,254</div></div>
+      <div class="card"><div class="card-lbl">CRITICAL</div><div class="card-val" style="color:#c00">12</div></div>
+      <div class="card"><div class="card-lbl">RESOLVED</div><div class="card-val" style="color:#060">8</div></div>
+      <div class="card"><div class="card-lbl">BLOCKED IPs</div><div class="card-val">47</div></div>
+      <div class="card"><div class="card-lbl">AVG RESPONSE</div><div class="card-val">4.2m</div></div>
+      <div class="card"><div class="card-lbl">UPTIME</div><div class="card-val">99.8%</div></div>
+    </div>
+    <h2>INSIDEN TERKINI</h2>
+    <table><thead><tr><th>WAKTU</th><th>JENIS ANCAMAN</th><th>KEPARAHAN</th><th>IP ADDRESS</th><th>LOKASI</th><th>STATUS</th></tr></thead>
+    <tbody>${HDATA.map(d=>`<tr><td>${d.time}</td><td>${d.type}</td><td><span class="badge ${d.sev}">${d.sev.toUpperCase()}</span></td><td style="font-family:monospace">${d.ip}</td><td>${d.loc}</td><td>${d.status.toUpperCase()}</td></tr>`).join('')}</tbody></table>
+    <h2>TOP JENIS ANCAMAN</h2>
+    <table><thead><tr><th>JENIS ANCAMAN</th><th>JUMLAH</th></tr></thead>
+    <tbody><tr><td>DDoS Attack</td><td>312</td></tr><tr><td>Brute Force</td><td>287</td></tr><tr><td>SQL Injection</td><td>198</td></tr><tr><td>Phishing</td><td>156</td></tr><tr><td>Malware</td><td>134</td></tr></tbody></table>
+    <div class="footer">FORTUNA SOC — Unit Intelijen Siber | Laporan ini bersifat RAHASIA | ${new Date().toLocaleDateString('id-ID')}</div>
+    <script>window.onload=()=>window.print();<\/script></body></html>`);
+    w.document.close();
+    btn.textContent='⬇️ Export PDF';btn.disabled=false;
+  },1200);
+}
+
+// ══════════════════════════════════
+//   KONEKSI KE BACKEND FORTUNA SOC
+// ══════════════════════════════════
+const socket = io('http://localhost:5000');
+
+socket.on('connected', () => {
+  console.log('✅ Terhubung ke FORTUNA SOC Backend!');
+});
+
+async function loadStats() {
+  try {
+    const res  = await fetch('http://localhost:5000/api/threats/stats');
+    const json = await res.json();
+    const d    = json.data;
+    document.getElementById('s1').textContent = d.total;
+    document.getElementById('s2').textContent = d.critical;
+    document.getElementById('s3').textContent = d.active;
+    document.getElementById('ms1').textContent = d.total;
+    document.getElementById('ms2').textContent = d.critical;
+    document.getElementById('ms3').textContent = d.high;
+    document.getElementById('ms4').textContent = d.medium;
+    console.log('📊 Stats loaded:', d);
+  } catch(e) {
+    console.log('❌ Gagal load stats:', e.message);
+  }
+}
+
+async function loadThreats() {
+  try {
+    const res  = await fetch('http://localhost:5000/api/threats?limit=20');
+    const json = await res.json();
+    json.data.forEach(t => addSocRow({
+      ip  : t.sourceIP,
+      type: t.type,
+      sev : t.severity,
+      loc : t.location.province
+    }));
+    console.log('🔥 Threats loaded:', json.total);
+  } catch(e) {
+    console.log('❌ Gagal load threats:', e.message);
+  }
+}
+
+socket.on('new-threat', (threat) => {
+  addSocRow({
+    ip  : threat.sourceIP,
+    type: threat.type,
+    sev : threat.severity,
+    loc : threat.location.province
+  });
+  loadStats();
+  showNotif(threat.severity, threat.type, 'IP: ' + threat.sourceIP + ' — ' + threat.location.province);
+});
+
+loadStats();
+loadThreats();
+</script>
+</body>
+</html>

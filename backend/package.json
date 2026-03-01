@@ -1,0 +1,20 @@
+{
+  "name": "fortuna-soc-backend",
+  "version": "1.0.0",
+  "description": "FORTUNA SOC - Backend API Server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "cybersecurity",
+    "soc",
+    "monitoring"
+  ],
+  "author": "FORTUNA SOC",
+  "license": "MIT",
+  "dependencies": {
+    "mongodb": "^7.1.0"
+  }
+}
